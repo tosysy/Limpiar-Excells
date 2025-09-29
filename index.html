@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Procesar Excels</title>
+  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+</head>
+<body>
+  <h1>📊 Procesador de Excels</h1>
+  <p>Sube varios <code>.xlsx</code> o <code>.xls</code> y consolidaré el contenido.</p>
+  
+  <input type="file" id="upload" multiple accept=".xls,.xlsx">
+  <button id="btn-procesar">Procesar</button>
+  
+  <div id="output"></div>
+
+  <py-script>
+import pandas as pd
+import io, re, unicodedata
+from js import document
+import asyncio
+
+# ==== utilidades ====
+def _norm(s):
+    if pd.isna(s):
+        return ""
+    s = str(s)
+    s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
+    return s.strip().lower()
+
+def _es_header_valido(fila_vals_norm):
+    hay_codigo = any(re.search(r"\bcod(igo)?\b", v) for v in fila_vals_norm)
+    hay_desc   = any("descrip" in v for v in fila_vals_norm)
+    hay_cant   = any(re.search(r"\bcant(idad|\.?)\b", v) for v in fila_vals_norm)
+    return hay_codigo and hay_desc and hay_cant
+
+def _parse_num_es(x):
+    if pd.isna(x): return None
+    s = str(x).strip().replace(" ", "").replace("\u00A0", "")
+    s = s.replace(".", "").replace(",", ".")
+    try: return float(s)
+    except: return None
+
+def _encontrar_tabla(df):
+    for i in range(len(df)):
+        fila_norm = [_norm(v) for v in df.iloc[i].tolist()]
+        if _es_header_valido(fila_norm):
+            col_norm = [_norm(c) for c in df.iloc[i].tolist()]
+            idx_codigo = next((j for j,v in enumerate(col_norm) if re.search(r"\bcod(igo)?\b", v)), None)
+            idx_desc   = next((j for j,v in enumerate(col_norm) if "descrip" in v), None)
+            idx_cant   = next((j for j,v in enumerate(col_norm) if re.search(r"\bcant(idad|\.?)\b", v)), None)
+            if None in (idx_codigo, idx_desc, idx_cant): continue
+            df_items = df.iloc[i+1:].copy()
+            df_items.columns = df.iloc[i].tolist()
+            return df_items, i, {"Código": idx_codigo, "Descripción": idx_desc, "Cantidad": idx_cant}
+    return None, None, None
+
+def extraer_datos(file_bytes):
+    libros = pd.read_excel(io.BytesIO(file_bytes), header=None, sheet_name=None)
+    for _, df in libros.items():
+        if df is None or df.empty: continue
+        df_items, idx_header, mapeo = _encontrar_tabla(df)
+        if df_items is None: continue
+        try:
+            cols = df.iloc[idx_header].tolist()
+            col_codigo, col_desc, col_cant = cols[mapeo["Código"]], cols[mapeo["Descripción"]], cols[mapeo["Cantidad"]]
+            df_final = df_items[[col_codigo, col_desc, col_cant]].copy()
+            df_final.columns = ["Código","Descripción","Cantidad"]
+            df_final = df_final.dropna(how="all")
+            df_final = df_final.dropna(subset=["Descripción"])
+            df_final = df_final[~df_final["Descripción"].astype(str).str.contains(r"(?i)\btotales?\b|^total\b")]
+            df_final["Cantidad"] = df_final["Cantidad"].apply(_parse_num_es)
+            df_final = df_final[df_final["Cantidad"].notna() & (df_final["Cantidad"]!=0)]
+            df_final = df_final[df_final["Código"].astype(str).str.strip().ne("")]
+            if not df_final.empty: return df_final
+        except: continue
+    return pd.DataFrame(columns=["Código","Descripción","Cantidad"])
+
+# ==== lógica del botón ====
+async def procesar(event=None):
+    input_elem = document.getElementById("upload")
+    files = input_elem.files
+    acumulado = []
+    for i in range(files.length):
+        f = files.item(i)
+        data = await f.arrayBuffer()
+        df = extraer_datos(data.to_py())
+        if not df.empty:
+            acumulado.append(df)
+
+    out = document.getElementById("output")
+    if acumulado:
+        df_total = pd.concat(acumulado, ignore_index=True)
+        df_total = df_total.groupby(["Código","Descripción"],as_index=False)["Cantidad"].sum()
+        df_total = df_total.sort_values(by="Descripción")
+        out.innerHTML = df_total.to_html(index=False)
+    else:
+        out.innerHTML = "<p style='color:red'>⚠ No se encontraron datos útiles.</p>"
+
+btn = document.getElementById("btn-procesar")
+btn.addEventListener("click", procesar)
+  </py-script>
+</body>
+</html>
