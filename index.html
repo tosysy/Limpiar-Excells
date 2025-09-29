@@ -1,105 +1,486 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Procesar Excels</title>
-  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
-  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consolidador de Excel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #000000 0%, #ffffff 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: #d1d5db;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        .input-field {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .input-field input {
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 1px solid #999;
+            font-size: 1em;
+            width: 60%;
+            max-width: 400px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #6b7280;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #ffffff;
+        }
+        
+        .upload-area:hover {
+            background: #fafafa;
+            border-color: #374151;
+        }
+        
+        .upload-area.dragover {
+            background: #f3f4f6;
+            border-color: #1f2937;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #1f2937 0%, #000000 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .files-list {
+            margin-top: 25px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .file-item {
+            background: #ffffff;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .file-name {
+            font-size: 0.9em;
+            color: #333;
+            flex: 1;
+        }
+        
+        .file-status {
+            font-size: 0.85em;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .summary {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin-top: 25px;
+            border-radius: 8px;
+        }
+        
+        .summary h3 {
+            color: #065f46;
+            margin-bottom: 10px;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #374151, #000000);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
 </head>
 <body>
-  <h1>📊 Procesador de Excels</h1>
-  <p>Sube varios <code>.xlsx</code> o <code>.xls</code> y consolidaré el contenido.</p>
-  
-  <input type="file" id="upload" multiple accept=".xls,.xlsx">
-  <button id="btn-procesar">Procesar</button>
-  
-  <div id="output"></div>
+    <div class="container">
+        <h1>📊 Consolidador de Excel</h1>
+        <p class="subtitle">Sube tus archivos Excel y consolida automáticamente los datos</p>
 
-  <py-script>
-import pandas as pd
-import io, re, unicodedata
-from js import document
-import asyncio
+        <div class="input-field">
+            <input type="text" id="shipName" placeholder="Nombre del barco (opcional)">
+        </div>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <p><strong>Arrastra archivos aquí</strong> o haz clic para seleccionar</p>
+            <p style="margin-top: 10px; font-size: 0.9em; color: #666;">Soporta archivos .xlsx y .xls</p>
+            <input type="file" id="fileInput" multiple accept=".xlsx,.xls">
+        </div>
+        
+        <div id="filesList" class="files-list"></div>
+        
+        <div id="progress" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <button class="btn" id="processBtn" style="display: none;">🚀 Procesar y Consolidar</button>
+            <button class="btn" id="downloadBtn" style="display: none;">💾 Descargar Consolidado</button>
+        </div>
+        
+        <div id="summary" style="display: none;" class="summary">
+            <h3>✅ Consolidación Completada</h3>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-value" id="totalItems">0</div>
+                    <div class="stat-label">Items únicos</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="totalQuantity">0</div>
+                    <div class="stat-label">Cantidad total</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="filesProcessed">0</div>
+                    <div class="stat-label">Archivos procesados</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-# ==== utilidades ====
-def _norm(s):
-    if pd.isna(s):
-        return ""
-    s = str(s)
-    s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
-    return s.strip().lower()
+    <script>
+        let files = [];
+        let consolidatedData = [];
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const filesList = document.getElementById('filesList');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const summary = document.getElementById('summary');
+        const progress = document.getElementById('progress');
+        const progressFill = document.getElementById('progressFill');
+        const shipNameInput = document.getElementById('shipName');
+        
+        function normalize(s) {
+            if (!s) return '';
+            return s.toString()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .trim();
+        }
+        
+        function isValidHeader(row) {
+            const normalized = row.map(v => normalize(v));
+            const hasCodigo = normalized.some(v => /\bcod(igo)?\b/.test(v));
+            const hasDesc = normalized.some(v => v.includes('descrip'));
+            const hasCant = normalized.some(v => /\bcant(idad|\.?)?\b/.test(v));
+            return hasCodigo && hasDesc && hasCant;
+        }
+        
+        function parseSpanishNumber(x) {
+            if (!x && x !== 0) return null;
+            let s = x.toString().trim();
+            if (!s) return null;
+            s = s.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(s);
+            return isNaN(num) ? null : num;
+        }
+        
+        function findTable(data) {
+            for (let i = 0; i < data.length; i++) {
+                const row = data[i];
+                if (isValidHeader(row)) {
+                    const normalized = row.map(v => normalize(v));
+                    const idxCodigo = normalized.findIndex(v => /\bcod(igo)?\b/.test(v));
+                    const idxDesc = normalized.findIndex(v => v.includes('descrip'));
+                    const idxCant = normalized.findIndex(v => /\bcant(idad|\.?)?\b/.test(v));
+                    
+                    if (idxCodigo !== -1 && idxDesc !== -1 && idxCant !== -1) {
+                        return {
+                            headerRow: i,
+                            indices: { codigo: idxCodigo, descripcion: idxDesc, cantidad: idxCant }
+                        };
+                    }
+                }
+            }
+            return null;
+        }
+        
+        async function extractData(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        for (let sheetName of workbook.SheetNames) {
+                            const worksheet = workbook.Sheets[sheetName];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                            
+                            const tableInfo = findTable(jsonData);
+                            if (!tableInfo) continue;
+                            
+                            const { headerRow, indices } = tableInfo;
+                            const items = [];
+                            
+                            for (let i = headerRow + 1; i < jsonData.length; i++) {
+                                const row = jsonData[i];
+                                const codigo = row[indices.codigo];
+                                const descripcion = row[indices.descripcion];
+                                const cantidad = parseSpanishNumber(row[indices.cantidad]);
+                                
+                                if (!descripcion || descripcion.toString().trim() === '') continue;
+                                if (/\btotales?\b|^total\b/i.test(descripcion)) continue;
+                                if (cantidad === null || cantidad === 0) continue;
+                                if (!codigo || codigo.toString().trim() === '') continue;
+                                
+                                items.push({
+                                    Código: codigo.toString().trim(),
+                                    Descripción: descripcion.toString().trim(),
+                                    Cantidad: cantidad
+                                });
+                            }
+                            
+                            if (items.length > 0) {
+                                resolve(items);
+                                return;
+                            }
+                        }
+                        resolve([]);
+                    } catch (error) {
+                        console.error('Error procesando archivo:', error);
+                        resolve([]);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+        
+        function updateFilesList() {
+            filesList.innerHTML = '';
+            files.forEach((file) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="file-name">📄 ${file.name}</span>
+                    <span class="file-status status-${file.status}">${file.statusText}</span>
+                `;
+                filesList.appendChild(div);
+            });
+            
+            processBtn.style.display = files.length > 0 ? 'inline-block' : 'none';
+        }
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        function handleFiles(fileList) {
+            const newFiles = Array.from(fileList)
+                .filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))
+                .map(f => ({ 
+                    file: f, 
+                    name: f.name, 
+                    status: 'pending', 
+                    statusText: 'Pendiente',
+                    data: []
+                }));
+            
+            files.push(...newFiles);
+            updateFilesList();
+            summary.style.display = 'none';
+            downloadBtn.style.display = 'none';
+        }
+        
+        processBtn.addEventListener('click', async () => {
+            processBtn.disabled = true;
+            progress.style.display = 'block';
+            consolidatedData = [];
+            
+            for (let i = 0; i < files.length; i++) {
+                const fileObj = files[i];
+                progressFill.style.width = ((i / files.length) * 100) + '%';
+                
+                const data = await extractData(fileObj.file);
+                
+                if (data.length > 0) {
+                    fileObj.status = 'success';
+                    fileObj.statusText = `✓ ${data.length} items`;
+                    fileObj.data = data;
+                    consolidatedData.push(...data);
+                } else {
+                    fileObj.status = 'error';
+                    fileObj.statusText = '✗ Sin datos';
+                }
+                
+                updateFilesList();
+            }
+            
+            progressFill.style.width = '100%';
+            
+            const grouped = {};
+            consolidatedData.forEach(item => {
+                const key = `${item.Código}|||${item.Descripción}`;
+                if (!grouped[key]) {
+                    grouped[key] = { ...item };
+                } else {
+                    grouped[key].Cantidad += item.Cantidad;
+                }
+            });
+            
+            consolidatedData = Object.values(grouped)
+                .sort((a, b) => a.Descripción.localeCompare(b.Descripción));
+            
+            const successFiles = files.filter(f => f.status === 'success').length;
+            const totalQty = consolidatedData.reduce((sum, item) => sum + item.Cantidad, 0);
+            
+            document.getElementById('totalItems').textContent = consolidatedData.length;
+            document.getElementById('totalQuantity').textContent = totalQty.toLocaleString('es-ES');
+            document.getElementById('filesProcessed').textContent = successFiles;
+            
+            summary.style.display = 'block';
+            downloadBtn.style.display = 'inline-block';
+            processBtn.disabled = false;
+        });
+        
+        downloadBtn.addEventListener('click', () => {
+            const ws = XLSX.utils.json_to_sheet(consolidatedData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Consolidado');
 
-def _es_header_valido(fila_vals_norm):
-    hay_codigo = any(re.search(r"\bcod(igo)?\b", v) for v in fila_vals_norm)
-    hay_desc   = any("descrip" in v for v in fila_vals_norm)
-    hay_cant   = any(re.search(r"\bcant(idad|\.?)\b", v) for v in fila_vals_norm)
-    return hay_codigo and hay_desc and hay_cant
+            let shipName = shipNameInput.value.trim();
+            if (!shipName) shipName = "consolidado";
 
-def _parse_num_es(x):
-    if pd.isna(x): return None
-    s = str(x).strip().replace(" ", "").replace("\u00A0", "")
-    s = s.replace(".", "").replace(",", ".")
-    try: return float(s)
-    except: return None
+            // Limpiar caracteres raros y espacios
+            shipName = shipName.replace(/[^\w\-]/g, '_');
 
-def _encontrar_tabla(df):
-    for i in range(len(df)):
-        fila_norm = [_norm(v) for v in df.iloc[i].tolist()]
-        if _es_header_valido(fila_norm):
-            col_norm = [_norm(c) for c in df.iloc[i].tolist()]
-            idx_codigo = next((j for j,v in enumerate(col_norm) if re.search(r"\bcod(igo)?\b", v)), None)
-            idx_desc   = next((j for j,v in enumerate(col_norm) if "descrip" in v), None)
-            idx_cant   = next((j for j,v in enumerate(col_norm) if re.search(r"\bcant(idad|\.?)\b", v)), None)
-            if None in (idx_codigo, idx_desc, idx_cant): continue
-            df_items = df.iloc[i+1:].copy()
-            df_items.columns = df.iloc[i].tolist()
-            return df_items, i, {"Código": idx_codigo, "Descripción": idx_desc, "Cantidad": idx_cant}
-    return None, None, None
-
-def extraer_datos(file_bytes):
-    libros = pd.read_excel(io.BytesIO(file_bytes), header=None, sheet_name=None)
-    for _, df in libros.items():
-        if df is None or df.empty: continue
-        df_items, idx_header, mapeo = _encontrar_tabla(df)
-        if df_items is None: continue
-        try:
-            cols = df.iloc[idx_header].tolist()
-            col_codigo, col_desc, col_cant = cols[mapeo["Código"]], cols[mapeo["Descripción"]], cols[mapeo["Cantidad"]]
-            df_final = df_items[[col_codigo, col_desc, col_cant]].copy()
-            df_final.columns = ["Código","Descripción","Cantidad"]
-            df_final = df_final.dropna(how="all")
-            df_final = df_final.dropna(subset=["Descripción"])
-            df_final = df_final[~df_final["Descripción"].astype(str).str.contains(r"(?i)\btotales?\b|^total\b")]
-            df_final["Cantidad"] = df_final["Cantidad"].apply(_parse_num_es)
-            df_final = df_final[df_final["Cantidad"].notna() & (df_final["Cantidad"]!=0)]
-            df_final = df_final[df_final["Código"].astype(str).str.strip().ne("")]
-            if not df_final.empty: return df_final
-        except: continue
-    return pd.DataFrame(columns=["Código","Descripción","Cantidad"])
-
-# ==== lógica del botón ====
-async def procesar(event=None):
-    input_elem = document.getElementById("upload")
-    files = input_elem.files
-    acumulado = []
-    for i in range(files.length):
-        f = files.item(i)
-        data = await f.arrayBuffer()
-        df = extraer_datos(data.to_py())
-        if not df.empty:
-            acumulado.append(df)
-
-    out = document.getElementById("output")
-    if acumulado:
-        df_total = pd.concat(acumulado, ignore_index=True)
-        df_total = df_total.groupby(["Código","Descripción"],as_index=False)["Cantidad"].sum()
-        df_total = df_total.sort_values(by="Descripción")
-        out.innerHTML = df_total.to_html(index=False)
-    else:
-        out.innerHTML = "<p style='color:red'>⚠ No se encontraron datos útiles.</p>"
-
-btn = document.getElementById("btn-procesar")
-btn.addEventListener("click", procesar)
-  </py-script>
+            XLSX.writeFile(wb, `${shipName}.xlsx`);
+        });
+    </script>
 </body>
 </html>
