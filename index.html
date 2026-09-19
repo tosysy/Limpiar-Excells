@@ -445,11 +445,27 @@
             
             const grouped = {};
             consolidatedData.forEach(item => {
-                const key = `${item.Código}|||${item.Descripción}`;
+                // Clave única agrupada exclusivamente por Código (sin espacios y en mayúsculas)
+                const rawCode = item.Código ? item.Código.toString().trim() : '';
+                const key = rawCode.toUpperCase();
+                
                 if (!grouped[key]) {
-                    grouped[key] = { ...item };
+                    grouped[key] = {
+                        Código: rawCode,
+                        Descripción: item.Descripción ? item.Descripción.toString().trim() : '',
+                        Cantidad: item.Cantidad
+                    };
                 } else {
-                    grouped[key].Cantidad += item.Cantidad;
+                    // Sumar cantidad controlando precisión decimal
+                    const sum = grouped[key].Cantidad + item.Cantidad;
+                    grouped[key].Cantidad = Number.isInteger(sum) ? sum : Math.round(sum * 10000) / 10000;
+
+                    // Si encontramos una descripción no vacía y más corta/simple, nos quedamos con ella
+                    const currentDesc = grouped[key].Descripción;
+                    const candidateDesc = item.Descripción ? item.Descripción.toString().trim() : '';
+                    if (candidateDesc.length > 0 && (currentDesc.length === 0 || candidateDesc.length < currentDesc.length)) {
+                        grouped[key].Descripción = candidateDesc;
+                    }
                 }
             });
             
